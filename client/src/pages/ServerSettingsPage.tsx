@@ -3,7 +3,7 @@ import { Settings, Database, CheckCircle, XCircle, Archive, Zap, Gamepad2 } from
 import { settingsApi, type ConnectionInfo, type ServerSessionDto, type TestConnectionResult } from '../services/adminApi';
 
 export default function ServerSettingsPage() {
-    const [connection, setConnection] = useState<ConnectionInfo | null>(null);
+    const [_connection, setConnection] = useState<ConnectionInfo | null>(null);
     const [sessions, setSessions] = useState<ServerSessionDto[]>([]);
     const [loading, setLoading] = useState(true);
 
