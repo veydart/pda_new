@@ -1,0 +1,47 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            set -e
+
+            APP_DIR="/opt/pda-analytics"
+
+            # First deploy: clone
+            if [ ! -d "$APP_DIR" ]; then
+              git clone https://github.com/veydart/pda_new.git "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+
+            # Pull latest
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Create .env if missing
+            if [ ! -f .env ]; then
+              cp .env.example .env
+              echo "⚠️  Created .env from example — update secrets!"
+            fi
+
+            # Build & deploy
+            docker compose build --parallel
+            docker compose up -d --remove-orphans
+
+            # Cleanup
+            docker image prune -f
+
+            echo "✅ Deploy complete!"

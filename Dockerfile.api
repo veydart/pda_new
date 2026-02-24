@@ -1,0 +1,28 @@
+# ── Build stage ──
+FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+WORKDIR /src
+
+# Copy csproj files first for layer caching
+COPY PdaAnalytics.sln ./
+COPY src/PdaAnalytics.Domain/PdaAnalytics.Domain.csproj src/PdaAnalytics.Domain/
+COPY src/PdaAnalytics.Data/PdaAnalytics.Data.csproj src/PdaAnalytics.Data/
+COPY src/PdaAnalytics.Api/PdaAnalytics.Api.csproj src/PdaAnalytics.Api/
+COPY src/PdaAnalytics.Syncer/PdaAnalytics.Syncer.csproj src/PdaAnalytics.Syncer/
+
+RUN dotnet restore src/PdaAnalytics.Api/PdaAnalytics.Api.csproj
+
+# Copy everything and publish
+COPY src/ src/
+RUN dotnet publish src/PdaAnalytics.Api/PdaAnalytics.Api.csproj \
+    -c Release -o /app/publish --no-restore
+
+# ── Runtime stage ──
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS runtime
+WORKDIR /app
+
+COPY --from=build /app/publish .
+
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+
+ENTRYPOINT ["dotnet", "PdaAnalytics.Api.dll"]

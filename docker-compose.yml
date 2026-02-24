@@ -1,0 +1,67 @@
+services:
+  # ── PostgreSQL ──
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pda_analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-PdaStr0ngP@ss2026}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── .NET API ──
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__Postgres=Host=db;Database=pda_analytics;Username=postgres;Password=${POSTGRES_PASSWORD:-PdaStr0ngP@ss2026}
+      - Jwt__Secret=${JWT_SECRET:-PdaAnalytics_SuperSecure_Key_2026_AtLeast32Chars!!}
+      - Jwt__Issuer=PdaAnalytics
+      - Jwt__Audience=PdaAnalytics.Client
+      - Jwt__ExpirationHours=24
+      - Cors__AllowedOrigins__0=http://localhost:8081
+      - Cors__AllowedOrigins__1=http://193.218.188.145:8081
+      - ASPNETCORE_ENVIRONMENT=Production
+    ports:
+      - "8080:8080"
+
+  # ── Data Syncer (ETL worker) ──
+  syncer:
+    build:
+      context: .
+      dockerfile: Dockerfile.syncer
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__Postgres=Host=db;Database=pda_analytics;Username=postgres;Password=${POSTGRES_PASSWORD:-PdaStr0ngP@ss2026}
+    deploy:
+      resources:
+        limits:
+          memory: 150M
+
+  # ── Frontend (Nginx + React) ──
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8081:80"
+
+volumes:
+  pgdata:

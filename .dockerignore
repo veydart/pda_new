@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+client/node_modules/
+client/dist/
+.vs/
+.vscode/
+.idea/
+.git/
+.github/
+.agent/
+*.md
+*.log
+_explore_schema*.mjs
+sql/

@@ -1,0 +1,37 @@
+# ── .NET ──
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.vs/
+.vs/
+*.DotSettings.user
+out/
+
+# ── Node ──
+client/node_modules/
+client/dist/
+
+# ── IDE ──
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Secrets / Environment ──
+.env
+appsettings.Production.json
+appsettings.*.Production.json
+
+# ── OS ──
+Thumbs.db
+.DS_Store
+
+# ── Docker ──
+docker-compose.override.yml
+
+# ── Misc ──
+_explore_schema*.mjs
+*.log
+nul
