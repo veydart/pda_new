@@ -1,0 +1,58 @@
+# Production compose — uses pre-built images from GHCR
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pda_analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-PdaStr0ngP@ss2026}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    image: ghcr.io/veydart/pda_new/api:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__Postgres=Host=db;Database=pda_analytics;Username=postgres;Password=${POSTGRES_PASSWORD:-PdaStr0ngP@ss2026}
+      - Jwt__Secret=${JWT_SECRET:-PdaAnalytics_SuperSecure_Key_2026_AtLeast32Chars!!}
+      - Jwt__Issuer=PdaAnalytics
+      - Jwt__Audience=PdaAnalytics.Client
+      - Jwt__ExpirationHours=24
+      - Cors__AllowedOrigins__0=http://localhost:8081
+      - Cors__AllowedOrigins__1=http://193.218.188.145:8081
+      - ASPNETCORE_ENVIRONMENT=Production
+    ports:
+      - "8080:8080"
+
+  syncer:
+    image: ghcr.io/veydart/pda_new/syncer:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__Postgres=Host=db;Database=pda_analytics;Username=postgres;Password=${POSTGRES_PASSWORD:-PdaStr0ngP@ss2026}
+    deploy:
+      resources:
+        limits:
+          memory: 150M
+
+  client:
+    image: ghcr.io/veydart/pda_new/client:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8081:80"
+
+volumes:
+  pgdata:

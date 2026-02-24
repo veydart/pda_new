@@ -5,8 +5,53 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
 jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.api
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/api:latest
+
+      - name: Build and push Syncer image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.syncer
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/syncer:latest
+
+      - name: Build and push Client image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.client
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/client:latest
+
   deploy:
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
@@ -17,31 +62,25 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
             set -e
-
             APP_DIR="/opt/pda-analytics"
 
-            # First deploy: clone
+            # Clone if first deploy
             if [ ! -d "$APP_DIR" ]; then
               git clone https://github.com/veydart/pda_new.git "$APP_DIR"
             fi
 
             cd "$APP_DIR"
-
-            # Pull latest
             git fetch origin main
             git reset --hard origin/main
 
             # Create .env if missing
             if [ ! -f .env ]; then
               cp .env.example .env
-              echo "⚠️  Created .env from example — update secrets!"
             fi
 
-            # Build & deploy
-            docker compose build --parallel
-            docker compose up -d --remove-orphans
-
-            # Cleanup
+            # Pull pre-built images and start
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
             docker image prune -f
 
             echo "✅ Deploy complete!"
